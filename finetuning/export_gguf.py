@@ -45,6 +45,13 @@ def export_gguf(checkpoint_path: str, output_path: str = None, quantization: str
     print("Merging adapter into base model...")
     model = model.merge_and_unload()
 
+    # Save merged model first (needed for GGUF export)
+    merged_dir = checkpoint_path.parent / f"{checkpoint_path.name}_merged"
+    merged_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Saving merged model to: {merged_dir}")
+    model.save_pretrained(str(merged_dir))
+    tokenizer.save_pretrained(str(merged_dir))
+
     # Determine output path
     if output_path is None:
         checkpoint_name = checkpoint_path.name
@@ -57,33 +64,36 @@ def export_gguf(checkpoint_path: str, output_path: str = None, quantization: str
     print(f"Exporting to GGUF: {output_path}")
     print(f"Quantization: {quantization}")
 
-    # Export to GGUF
+    # Export to GGUF (from merged model directory)
     model.save_pretrained_gguf(
-        str(output_path.parent),
+        str(merged_dir),
         tokenizer,
         quantization_method=quantization,
     )
 
     # Find generated GGUF file (Unsloth creates with specific name)
-    gguf_files = list(output_path.parent.glob("*.gguf"))
+    gguf_files = list(merged_dir.glob("*.gguf"))
     if gguf_files:
         generated_file = gguf_files[-1]  # Get most recent
-        final_path = output_path.parent / output_path.name
 
-        if generated_file != final_path:
-            import shutil
-            shutil.move(str(generated_file), str(final_path))
-            print(f"✅ Renamed to: {final_path}")
+        # Move to final output location
+        import shutil
+        shutil.move(str(generated_file), str(output_path))
+        print(f"✅ Moved to: {output_path}")
 
         # Show file size
-        size_mb = final_path.stat().st_size / (1024 * 1024)
+        size_mb = output_path.stat().st_size / (1024 * 1024)
         print(f"✅ Export complete!")
-        print(f"   File: {final_path}")
+        print(f"   File: {output_path}")
         print(f"   Size: {size_mb:.1f} MB")
         print(f"\nTest with llama.cpp:")
-        print(f"   ./llama-server -m {final_path} --port 8100")
+        print(f"   ./llama-server -m {output_path} --port 8100")
 
-        return str(final_path)
+        # Cleanup merged model directory
+        print(f"Cleaning up merged model directory: {merged_dir}")
+        shutil.rmtree(str(merged_dir))
+
+        return str(output_path)
     else:
         raise RuntimeError("GGUF file not created!")
 
