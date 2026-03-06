@@ -30,8 +30,14 @@ bf16: true
 max_grad_norm: 1.0
 adam_beta2: 0.999
 logging_steps: 10
-save_steps: 200
-eval_steps: 200
+save_steps: 100              # More frequent saves
+eval_steps: 100              # More frequent eval
+save_strategy: "steps"
+eval_strategy: "steps"
+load_best_model_at_end: true # Load best checkpoint at end
+metric_for_best_model: "loss"
+greater_is_better: false
+save_total_limit: 5          # Keep 5 best checkpoints
 seed: 42
 
 # Data loading (NEW)
