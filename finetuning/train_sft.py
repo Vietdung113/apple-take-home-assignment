@@ -116,6 +116,18 @@ def main():
     # ── Data ─────────────────────────────────────────────────────────
     train_ds, val_ds = load_sft_data(config, max_samples=args.max_samples)
 
+    # Preprocess: add "text" field with formatted chat template
+    def add_text_field(example):
+        example["text"] = tokenizer.apply_chat_template(
+            example["messages"],
+            tokenize=False,
+            add_generation_prompt=False,
+        )
+        return example
+
+    train_ds = train_ds.map(add_text_field)
+    val_ds = val_ds.map(add_text_field)
+
     # ── SFT Trainer ──────────────────────────────────────────────────
     output_dir = config.get("output_dir", "output/sft")
 
@@ -154,23 +166,13 @@ def main():
             config=config,
         )
 
-    # ── Formatting function for SFTTrainer ───────────────────────────
-    def formatting_func(example):
-        """Format messages into chat template. Returns list of strings."""
-        text = tokenizer.apply_chat_template(
-            example["messages"],
-            tokenize=True,
-            add_generation_prompt=False,
-        )
-        return text
-
     trainer = SFTTrainer(
         model=model,
         processing_class=tokenizer,
         args=training_args,
         train_dataset=train_ds,
         eval_dataset=val_ds,
-        formatting_func=formatting_func,
+        dataset_text_field="text",  # Use preprocessed text field
     )
 
     print(f"\n{'='*60}")
