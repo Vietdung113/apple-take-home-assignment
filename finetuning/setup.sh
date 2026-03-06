@@ -7,12 +7,21 @@
 #   bash setup.sh sft 16k                                 # install + train SFT 16K
 #   bash setup.sh sft 32k                                 # install + train SFT 32K
 #   bash setup.sh sft 8k --max-samples 50 --export-gguf   # smoke test + GGUF
+#   bash setup.sh sft 8k --shutdown                       # auto-shutdown when done
 #   bash setup.sh grpo                                    # install + train GRPO
 #   bash setup.sh grpo --max-samples 50 --export-gguf     # GRPO smoke test
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 WANDB_KEY="${WANDB_API_KEY:-}"
+AUTO_SHUTDOWN=false
+
+# Check for --shutdown flag
+for arg in "$@"; do
+    if [ "$arg" = "--shutdown" ]; then
+        AUTO_SHUTDOWN=true
+    fi
+done
 
 # ── Colors ───────────────────────────────────────────────────────────────
 info()  { echo -e "\033[1;34m[INFO]\033[0m $*"; }
@@ -49,11 +58,54 @@ if [ "$MODE" = "sft" ]; then
     CONFIG="configs/sft_${VARIANT}.yaml"
     [ -f "$CONFIG" ] || err "Config not found: $CONFIG"
     info "Starting SFT training ($VARIANT) ..."
-    uv run python train_sft.py --config "$CONFIG" "$@"
+
+    # Run training (remove --shutdown from args)
+    TRAIN_ARGS=()
+    for arg in "$@"; do
+        if [ "$arg" != "--shutdown" ]; then
+            TRAIN_ARGS+=("$arg")
+        fi
+    done
+
+    if uv run python train_sft.py --config "$CONFIG" "${TRAIN_ARGS[@]}"; then
+        ok "Training completed successfully!"
+
+        # Auto-shutdown if requested
+        if [ "$AUTO_SHUTDOWN" = true ]; then
+            info "Auto-shutdown enabled. Shutting down in 60 seconds..."
+            info "Press Ctrl+C to cancel shutdown"
+            sleep 60
+            ok "Shutting down now..."
+            sudo shutdown -h now
+        fi
+    else
+        err "Training failed!"
+    fi
 
 elif [ "$MODE" = "grpo" ]; then
     info "Starting GRPO training ..."
-    uv run python train_grpo.py "$@"
+
+    # Remove --shutdown from args
+    TRAIN_ARGS=()
+    for arg in "$@"; do
+        if [ "$arg" != "--shutdown" ]; then
+            TRAIN_ARGS+=("$arg")
+        fi
+    done
+
+    if uv run python train_grpo.py "${TRAIN_ARGS[@]}"; then
+        ok "Training completed successfully!"
+
+        if [ "$AUTO_SHUTDOWN" = true ]; then
+            info "Auto-shutdown enabled. Shutting down in 60 seconds..."
+            info "Press Ctrl+C to cancel shutdown"
+            sleep 60
+            ok "Shutting down now..."
+            sudo shutdown -h now
+        fi
+    else
+        err "Training failed!"
+    fi
 
 elif [ -n "$MODE" ]; then
     err "Unknown mode: $MODE. Use 'sft' or 'grpo'."
@@ -64,6 +116,7 @@ else
     echo "  bash setup.sh sft 16k                         # SFT 16K full"
     echo "  bash setup.sh sft 32k                         # SFT 32K full"
     echo "  bash setup.sh sft 8k --max-samples 50         # smoke test"
+    echo "  bash setup.sh sft 8k --shutdown               # auto-shutdown when done"
     echo "  bash setup.sh grpo                            # GRPO full"
     echo "  bash setup.sh grpo --max-samples 50           # GRPO smoke test"
 fi
