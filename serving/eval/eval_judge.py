@@ -161,11 +161,11 @@ class JudgeClient:
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": "Respond with JSON only. Do not use <think> tags or chain-of-thought. Output the JSON immediately."},
+                {"role": "system", "content": "You are a precise evaluator. Respond with valid JSON only, no markdown fences, no explanations."},
                 {"role": "user", "content": prompt},
             ],
-            "temperature": 0.1,
-            "max_tokens": 4096,
+            "temperature": 0.0,
+            "max_tokens": 512,
         }
 
         for attempt in range(retries):
@@ -178,17 +178,14 @@ class JudgeClient:
                     rjson = resp.json()
                 except json.JSONDecodeError:
                     raise ValueError(f"Non-JSON response ({resp.status_code}): {resp.text[:300]}")
+
                 msg = rjson["choices"][0]["message"]
-                content = msg.get("content")
-                reasoning = msg.get("reasoning_content") or msg.get("reasoning") or ""
-                if content is None or content.strip() == "":
-                    # Thinking model: JSON may be in reasoning field
-                    if reasoning:
-                        text = reasoning.strip()
-                    else:
-                        raise ValueError("Judge returned empty content and no reasoning")
-                else:
-                    text = content.strip()
+                content = msg.get("content", "").strip()
+
+                if not content:
+                    raise ValueError("Judge returned empty content")
+
+                text = content
 
                 # Strip markdown code fences if present
                 if text.startswith("```"):
