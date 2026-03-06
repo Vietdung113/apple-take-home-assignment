@@ -154,12 +154,22 @@ def main():
             config=config,
         )
 
+    # ── Formatting function for SFTTrainer ───────────────────────────
+    def formatting_func(example):
+        """Format messages into chat template."""
+        return tokenizer.apply_chat_template(
+            example["messages"],
+            tokenize=False,
+            add_generation_prompt=False,
+        )
+
     trainer = SFTTrainer(
         model=model,
         processing_class=tokenizer,
         args=training_args,
         train_dataset=train_ds,
         eval_dataset=val_ds,
+        formatting_func=formatting_func,
     )
 
     print(f"\n{'='*60}")
