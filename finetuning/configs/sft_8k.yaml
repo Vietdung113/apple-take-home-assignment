@@ -25,7 +25,7 @@ learning_rate: 2.0e-4
 warmup_ratio: 0.05
 lr_scheduler_type: "cosine"
 weight_decay: 0.1
-num_train_epochs: 10
+num_train_epochs: 5
 bf16: true
 max_grad_norm: 1.0
 adam_beta2: 0.999
