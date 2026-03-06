@@ -36,7 +36,7 @@ dataset: "ccdv/govreport-summarization"
 data_dir: "data"
 
 # Monitoring
-use_wandb: false
+use_wandb: true
 wandb_project: "qwen3-govreport-sft"
 
 # Output
