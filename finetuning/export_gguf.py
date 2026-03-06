@@ -71,13 +71,26 @@ def export_gguf(checkpoint_path: str, output_path: str = None, quantization: str
         quantization_method=quantization,
     )
 
-    # Find generated GGUF file (Unsloth creates with specific name)
-    gguf_files = list(merged_dir.glob("*.gguf"))
+    # Find generated GGUF file (Unsloth creates in _gguf subdirectory)
+    import shutil
+    gguf_subdir = Path(str(merged_dir) + "_gguf")
+
+    # Look in both locations
+    gguf_files = list(merged_dir.glob("*.gguf")) + list(gguf_subdir.glob("*.gguf"))
+
     if gguf_files:
-        generated_file = gguf_files[-1]  # Get most recent
+        # Find the quantized GGUF file (matches quantization method)
+        quant_upper = quantization.upper().replace("_", "_")
+        generated_file = None
+        for f in gguf_files:
+            if quant_upper in f.name.upper():
+                generated_file = f
+                break
+
+        if generated_file is None:
+            generated_file = gguf_files[-1]  # Fallback to most recent
 
         # Move to final output location
-        import shutil
         shutil.move(str(generated_file), str(output_path))
         print(f"✅ Moved to: {output_path}")
 
@@ -89,9 +102,12 @@ def export_gguf(checkpoint_path: str, output_path: str = None, quantization: str
         print(f"\nTest with llama.cpp:")
         print(f"   ./llama-server -m {output_path} --port 8100")
 
-        # Cleanup merged model directory
+        # Cleanup merged model directories
         print(f"Cleaning up merged model directory: {merged_dir}")
-        shutil.rmtree(str(merged_dir))
+        if merged_dir.exists():
+            shutil.rmtree(str(merged_dir))
+        if gguf_subdir.exists():
+            shutil.rmtree(str(gguf_subdir))
 
         return str(output_path)
     else:
