@@ -4,17 +4,17 @@ Sorts documents by length, splits into terciles (short/medium/long),
 and samples a configurable number from each bucket. Saves to JSON so
 that eval_rouge.py and eval_judge.py both use the same examples.
 
-Config (via eval/.env or environment):
+Config (via .env or environment):
     EVAL_N_SHORT   — examples from short bucket  (default: 3)
     EVAL_N_MEDIUM  — examples from medium bucket  (default: 3)
     EVAL_N_LONG    — examples from long bucket    (default: 4)
     JUDGE_SEED     — random seed for sampling     (default: 42)
 
 Output:
-    eval/eval_dataset.json — array of {idx, bucket, report, summary, doc_chars}
+    eval_dataset.json — array of {idx, bucket, report, summary, doc_chars}
 
 Usage:
-    cd serving && uv run python eval/prepare_dataset.py
+    cd eval && uv run python prepare_dataset.py
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from pathlib import Path
 
 from datasets import load_dataset
 
-from eval.common import load_dotenv
+from common import load_dotenv
 
 load_dotenv()
 

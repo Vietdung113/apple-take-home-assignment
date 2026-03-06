@@ -4,7 +4,7 @@ Metrics:
 - ROUGE-1, ROUGE-2, ROUGE-L (vs reference summary)
 - LLM-as-judge (Qwen2.5-32B): coverage, specificity, consistency, conciseness
 
-Config (via eval/.env):
+Config (via .env):
     BASE_MODEL_URL      — Base model server (port 8100)
     FINETUNED_MODEL_URL — Fine-tuned model server (port 8200)
     AGENT_API_URL       — Agent pipeline API (uses fine-tuned model)
@@ -12,8 +12,8 @@ Config (via eval/.env):
     JUDGE_MODEL         — Judge model name
 
 Usage:
-    cd serving
-    uv run python eval/eval_all.py
+    cd eval
+    uv run python eval_all.py
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ from pathlib import Path
 
 import httpx
 
-from eval.common import RougeScores, compute_rouge, generate_summary, load_dotenv
+from common import RougeScores, compute_rouge, generate_summary, load_dotenv
 
 load_dotenv()
 
@@ -311,7 +311,7 @@ def save_results(results: list[EvalResult], path: str = "eval_all_results.json")
 async def main():
     if not DATASET_PATH.exists():
         print(f"ERROR: {DATASET_PATH} not found.")
-        print("Run: uv run python eval/prepare_dataset.py")
+        print("Run: uv run python prepare_dataset.py")
         sys.exit(1)
 
     print(f"  3-Way Evaluation")

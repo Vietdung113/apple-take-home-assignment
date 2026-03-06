@@ -12,14 +12,15 @@
 ### 1. Prepare eval dataset
 
 ```bash
-cd serving
-uv run python eval/prepare_dataset.py
-# → eval/eval_dataset.json (10 samples: 3 short, 3 medium, 4 long)
+cd eval
+uv sync
+uv run python prepare_dataset.py
+# → eval_dataset.json (10 samples: 3 short, 3 medium, 4 long)
 ```
 
 ### 2. Start inference servers on vast.ai
 
-See `inference-server-eval/README.md`:
+See `../inference-server-eval/README.md`:
 
 ```bash
 ssh -p <port> root@<vast.ai-host>
@@ -47,18 +48,18 @@ export INFERENCE_BASE_URL=http://localhost:8200/v1  # use fine-tuned model
 uv run uvicorn api_service.main:app --host 0.0.0.0 --port 8300
 ```
 
-### 4. Configure eval/.env
+### 4. Configure .env
 
 ```bash
-cd serving
-cp eval/.env.example eval/.env
-# URLs should point to vast.ai servers (or use SSH tunnel)
+cd eval
+cp .env.example .env
+# Edit URLs to point to vast.ai servers (or use SSH tunnel)
 ```
 
 ### 5. Run evaluation
 
 ```bash
-uv run python eval/eval_all.py
+uv run python eval_all.py
 ```
 
 ## Output

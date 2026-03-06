@@ -4,39 +4,42 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a take-home assessment for an Apple Language Engineer position. The goal is to design and implement a **summarization adapter** (QLoRA) on top of the Qwen2.5-3B-Instruct base model, trained on the CNN/DailyMail v3.0.0 dataset. The project includes fine-tuning, a serving API with an agentic summarization pipeline, and a frontend demo.
+Apple Language Engineer take-home assessment: Design and implement a **summarization adapter** (QLoRA) on top of Qwen3-0.6B base model, trained on GovReport dataset. Includes fine-tuning, serving API with agentic pipeline, and evaluation suite.
 
 ## Repository Structure
 
-Three independent sub-projects, each managed by `uv` with its own `pyproject.toml`:
+Four independent sub-projects, each managed by `uv` with its own `pyproject.toml`:
 
-- **`finetuning/`** — QLoRA adapter training and evaluation scripts (PEFT-based)
-- **`serving/`** — FastAPI inference service with an agentic summarization pipeline (`serving/api-service/app/agents/`)
-- **`fe/`** — Frontend demo application
+- **`finetuning/`** — QLoRA SFT training scripts (Unsloth + PEFT)
+- **`serving/`** — FastAPI agentic summarization pipeline
+- **`eval/`** — 3-way evaluation (base/finetuned/agent) with ROUGE + LLM-as-judge
+- **`inference-server/`** — llama.cpp server for local Mac serving
+- **`inference-server-eval/`** — 3 llama.cpp servers for eval on vast.ai
 
-## Build & Development Commands
+## Build & Development
 
-Each sub-project uses `uv` for dependency management:
+Each sub-project uses `uv`:
 
 ```bash
-# Install dependencies for a sub-project
 cd <sub-project> && uv sync
-
-# Run a sub-project's scripts (uv manages the virtualenv)
 uv run python <script.py>
 uv run pytest                    # run all tests
-uv run pytest path/to/test.py    # run a single test file
-uv run pytest -k "test_name"     # run a single test by name
 ```
 
 ## Architecture
 
-- **Base model:** Qwen2.5-3B-Instruct
-- **Adapter method:** QLoRA via Hugging Face PEFT — low-rank adapters applied to the base model's attention layers with 4-bit quantization
-- **Dataset:** CNN/DailyMail v3.0.0 (news article summarization)
-- **Serving:** The API service uses an agentic pipeline (in `serving/api-service/app/agents/`) that orchestrates summarization — not a single model call but a multi-step agent workflow
-- **Input/Output format:** JSON with `"document"` field in, `"summary"` field out (plain text values)
+- **Base model:** Qwen3-0.6B (Unsloth)
+- **Adapter:** QLoRA (rank 32, 4-bit quantization)
+- **Dataset:** GovReport (government report summarization)
+- **Training:** SFT on 3 context lengths (8K/16K/32K tokens)
+- **Serving:** Agentic pipeline (chunk → extract facts → merge → summarize)
+- **Eval:** ROUGE + Qwen2.5-32B judge (coverage/specificity/consistency/conciseness)
 
 ## Evaluation
 
-Evaluation compares the fine-tuned adapter against the base Qwen2.5-3B-Instruct model using metrics like ROUGE and BLEU scores on the CNN/DailyMail test split.
+3-way comparison:
+1. **Base model** (Qwen3-0.6B, no fine-tuning)
+2. **Fine-tuned model** (Qwen3-0.6B + QLoRA adapter)
+3. **Agent pipeline** (using fine-tuned model)
+
+Metrics: ROUGE-1/2/L, LLM-as-judge scores on stratified test set (short/medium/long docs).
