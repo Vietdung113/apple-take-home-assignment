@@ -12,20 +12,14 @@ Summarize this government report:
 
 EXTRACT_CHUNK_FACTS = """\
 /no_think
-Extract all important facts from this government report section.
-Copy exact names, numbers, dates, and amounts.
-Write each fact as one short bullet point starting with "- ".
-Do not explain or interpret. Only copy facts.
+Extract key facts from this government report section (as bullet points):
 
-Text:
 {chunk}"""
 
 # ── Extract path (long docs): Pass 2 — SUMMARIZE from extracted facts ──
 
 SUMMARIZE_FACTS = """\
 /no_think
-Write a {target_words}-word summary of this government report using only these facts.
-Combine related facts into sentences. Use all facts. Do not add new information.
+Summarize this government report using these facts:
 
-Facts:
 {extracted_facts}"""
