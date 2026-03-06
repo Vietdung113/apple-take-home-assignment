@@ -75,6 +75,7 @@ def main():
     parser.add_argument("--max-samples", type=int, help="Override training sample count")
     parser.add_argument("--num-epochs", type=int, help="Override num_train_epochs")
     parser.add_argument("--export-gguf", action="store_true", help="Export GGUF after training")
+    parser.add_argument("--resume-from", type=str, help="Resume from checkpoint adapter directory")
     args = parser.parse_args()
 
     config_path = pathlib.Path(__file__).parent / args.config
@@ -98,21 +99,27 @@ def main():
     )
 
     # ── Apply QLoRA ──────────────────────────────────────────────────
-    print("Applying QLoRA adapters ...")
-    model = FastLanguageModel.get_peft_model(
-        model,
-        r=lora_rank,
-        target_modules=config.get("target_modules", [
-            "q_proj", "k_proj", "v_proj", "o_proj",
-            "gate_proj", "up_proj", "down_proj",
-        ]),
-        lora_alpha=config.get("lora_alpha", lora_rank),
-        lora_dropout=config.get("lora_dropout", 0),
-        bias="none",
-        use_gradient_checkpointing="unsloth",
-        use_rslora=config.get("use_rslora", False),
-        random_state=config.get("seed", 42),
-    )
+    if args.resume_from:
+        print(f"Loading adapter from checkpoint: {args.resume_from}")
+        from peft import PeftModel
+        model = PeftModel.from_pretrained(model, args.resume_from)
+        print("✅ Adapter loaded. Continuing training from checkpoint.")
+    else:
+        print("Applying QLoRA adapters ...")
+        model = FastLanguageModel.get_peft_model(
+            model,
+            r=lora_rank,
+            target_modules=config.get("target_modules", [
+                "q_proj", "k_proj", "v_proj", "o_proj",
+                "gate_proj", "up_proj", "down_proj",
+            ]),
+            lora_alpha=config.get("lora_alpha", lora_rank),
+            lora_dropout=config.get("lora_dropout", 0),
+            bias="none",
+            use_gradient_checkpointing="unsloth",
+            use_rslora=config.get("use_rslora", False),
+            random_state=config.get("seed", 42),
+        )
 
     # ── Data ─────────────────────────────────────────────────────────
     train_ds, val_ds = load_sft_data(config, max_samples=args.max_samples)
