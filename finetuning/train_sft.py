@@ -156,14 +156,13 @@ def main():
 
     # ── Formatting function for SFTTrainer ───────────────────────────
     def formatting_func(example):
-        """Format messages into chat template. Always returns list of strings."""
-        # Unsloth expects list format, even for single example
+        """Format messages into chat template. Returns list of strings."""
         text = tokenizer.apply_chat_template(
             example["messages"],
-            tokenize=False,
+            tokenize=True,
             add_generation_prompt=False,
         )
-        return [text]
+        return text
 
     trainer = SFTTrainer(
         model=model,
