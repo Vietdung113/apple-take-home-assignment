@@ -40,9 +40,9 @@ greater_is_better: false
 save_total_limit: 3
 seed: 42
 
-# Data loading (NEW)
-dataloader_num_workers: 4
-dataloader_prefetch_factor: 2
+# Data loading (OPTIMIZED for 128-core CPU)
+dataloader_num_workers: 32        # Increase from 4 to 32
+dataloader_prefetch_factor: 4     # More prefetch with more workers
 dataloader_pin_memory: true
 
 # Data

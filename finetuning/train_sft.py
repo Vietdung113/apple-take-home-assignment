@@ -126,8 +126,10 @@ def main():
         )
         return example
 
-    train_ds = train_ds.map(add_text_field)
-    val_ds = val_ds.map(add_text_field)
+    # Use multiprocessing for faster preprocessing
+    num_proc = min(32, len(train_ds) // 100)  # Up to 32 workers
+    train_ds = train_ds.map(add_text_field, num_proc=num_proc if num_proc > 1 else None)
+    val_ds = val_ds.map(add_text_field, num_proc=min(8, len(val_ds) // 10) if len(val_ds) > 100 else None)
 
     # ── SFT Trainer ──────────────────────────────────────────────────
     output_dir = config.get("output_dir", "output/sft")
