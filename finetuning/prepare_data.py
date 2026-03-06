@@ -26,7 +26,7 @@ from transformers import AutoTokenizer
 MODEL_NAME = "Qwen/Qwen3-0.6B"
 DEFAULT_BUDGETS = [8192, 16384, 32768]
 
-PROMPT_TEMPLATE = "Summarize the following document:\n\n{doc}\n\nSummary:"
+PROMPT_TEMPLATE = "/no_think\nSummarize this government report:\n\n{doc}"
 
 # Quality filters
 MIN_DOC_TOKENS = 200
