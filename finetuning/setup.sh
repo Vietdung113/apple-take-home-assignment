@@ -58,6 +58,8 @@ if [ "$MODE" = "sft" ]; then
     CONFIG="configs/sft_${VARIANT}.yaml"
     [ -f "$CONFIG" ] || err "Config not found: $CONFIG"
     info "Starting SFT training ($VARIANT) ..."
+    LOG_FILE="training_${VARIANT}_$(date +%Y%m%d_%H%M%S).log"
+    info "Logging to: $LOG_FILE"
 
     # Run training (remove --shutdown from args)
     TRAIN_ARGS=()
@@ -67,7 +69,7 @@ if [ "$MODE" = "sft" ]; then
         fi
     done
 
-    if uv run python train_sft.py --config "$CONFIG" "${TRAIN_ARGS[@]}"; then
+    if uv run python -u train_sft.py --config "$CONFIG" "${TRAIN_ARGS[@]}" 2>&1 | tee "$LOG_FILE"; then
         ok "Training completed successfully!"
 
         # Auto-shutdown if requested
