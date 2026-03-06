@@ -155,17 +155,31 @@ def main():
         )
 
     # ── Formatting function for SFTTrainer ───────────────────────────
-    def formatting_func(examples):
-        """Format messages into chat template. Returns list of strings."""
-        texts = []
-        for messages in examples["messages"]:
-            text = tokenizer.apply_chat_template(
+    def formatting_func(example):
+        """Format messages into chat template. Returns single string or list."""
+        # Handle both single example and batch
+        messages = example.get("messages")
+        if messages is None:
+            return []
+
+        # If messages is a list of message lists (batched)
+        if isinstance(messages[0], list):
+            texts = []
+            for msgs in messages:
+                text = tokenizer.apply_chat_template(
+                    msgs,
+                    tokenize=False,
+                    add_generation_prompt=False,
+                )
+                texts.append(text)
+            return texts
+        else:
+            # Single example
+            return tokenizer.apply_chat_template(
                 messages,
                 tokenize=False,
                 add_generation_prompt=False,
             )
-            texts.append(text)
-        return texts
 
     trainer = SFTTrainer(
         model=model,
