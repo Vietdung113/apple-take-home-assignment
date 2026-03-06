@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # setup.sh — Bootstrap a vast.ai instance for SFT/GRPO fine-tuning.
 #
-# SSH into the instance then run:
+# Usage:
 #   bash setup.sh                                         # install deps only
 #   bash setup.sh sft 8k                                  # install + train SFT 8K
 #   bash setup.sh sft 16k                                 # install + train SFT 16K
@@ -11,8 +11,7 @@
 #   bash setup.sh grpo --max-samples 50 --export-gguf     # GRPO smoke test
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-}"          # set before running, or clone manually
-REPO_DIR="/workspace/finetuning"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 WANDB_KEY="${WANDB_API_KEY:-}"
 
 # ── Colors ───────────────────────────────────────────────────────────────
@@ -20,35 +19,23 @@ info()  { echo -e "\033[1;34m[INFO]\033[0m $*"; }
 ok()    { echo -e "\033[1;32m[OK]\033[0m $*"; }
 err()   { echo -e "\033[1;31m[ERR]\033[0m $*"; exit 1; }
 
-# ── 1. Install dependencies ─────────────────────────────────────────────
-info "Installing Python dependencies ..."
-pip install -q --upgrade pip
-# Unsloth auto-installer detects CUDA version and installs matching torch+unsloth
-wget -qO /tmp/_auto_install.py \
-    https://raw.githubusercontent.com/unslothai/unsloth/main/unsloth/_auto_install.py
-python /tmp/_auto_install.py
-pip install -q pyyaml rouge-score wandb trl
-rm -f /tmp/_auto_install.py
-ok "Dependencies installed"
-
-# ── 2. Clone repo (if not already present) ──────────────────────────────
-if [ ! -f "$REPO_DIR/train_sft.py" ]; then
-    if [ -n "$REPO_URL" ]; then
-        info "Cloning repo ..."
-        git clone "$REPO_URL" /workspace/repo
-        ln -sfn /workspace/repo/finetuning "$REPO_DIR"
-        ok "Repo cloned"
-    else
-        info "No REPO_URL set. Upload finetuning/ to $REPO_DIR manually."
-        info "Then re-run: bash setup.sh <mode> <args>"
-    fi
+# ── 1. Install uv if missing ────────────────────────────────────────────
+if ! command -v uv &>/dev/null; then
+    info "Installing uv ..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.local/bin:$PATH"
 fi
+ok "uv $(uv --version)"
 
-cd "$REPO_DIR"
+# ── 2. Sync dependencies ────────────────────────────────────────────────
+cd "$SCRIPT_DIR"
+info "Syncing dependencies (uv sync) ..."
+uv sync
+ok "Dependencies installed"
 
 # ── 3. wandb login ──────────────────────────────────────────────────────
 if [ -n "$WANDB_KEY" ]; then
-    wandb login "$WANDB_KEY" 2>/dev/null || true
+    uv run wandb login "$WANDB_KEY" 2>/dev/null || true
     ok "wandb configured"
 fi
 
@@ -62,11 +49,11 @@ if [ "$MODE" = "sft" ]; then
     CONFIG="configs/sft_${VARIANT}.yaml"
     [ -f "$CONFIG" ] || err "Config not found: $CONFIG"
     info "Starting SFT training ($VARIANT) ..."
-    python train_sft.py --config "$CONFIG" "$@"
+    uv run python train_sft.py --config "$CONFIG" "$@"
 
 elif [ "$MODE" = "grpo" ]; then
     info "Starting GRPO training ..."
-    python train_grpo.py "$@"
+    uv run python train_grpo.py "$@"
 
 elif [ -n "$MODE" ]; then
     err "Unknown mode: $MODE. Use 'sft' or 'grpo'."

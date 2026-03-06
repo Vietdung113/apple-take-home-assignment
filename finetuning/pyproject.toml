@@ -1,0 +1,20 @@
+[project]
+name = "finetuning"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.4",
+    "transformers",
+    "datasets",
+    "peft",
+    "trl",
+    "unsloth",
+    "pyyaml",
+    "rouge-score",
+    "wandb",
+]
+
+[tool.uv]
+find-links = [
+    "https://download.pytorch.org/whl/cu124",
+]
