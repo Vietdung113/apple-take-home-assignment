@@ -14,7 +14,6 @@ Four independent sub-projects, each managed by `uv` with its own `pyproject.toml
 - **`serving/`** — FastAPI agentic summarization pipeline
 - **`eval/`** — 3-way evaluation (base/finetuned/agent) with ROUGE + LLM-as-judge
 - **`inference-server/`** — llama.cpp server for local Mac serving
-- **`inference-server-eval/`** — 3 llama.cpp servers for eval on vast.ai
 
 ## Build & Development
 

@@ -1,6 +1,15 @@
-"""Prompt templates for the extractive-first summarization pipeline."""
+"""Prompt templates for the summarization pipeline."""
 
-# ── Pass 1: EXTRACT key facts from a chunk ──
+# ── Direct path: simple summarization (short/medium docs) ──
+
+DIRECT_SUMMARIZE = """\
+Summarize the following document:
+
+{document}
+
+Summary: /no_think"""
+
+# ── Extract path (long docs): Pass 1 — EXTRACT key facts from a chunk ──
 
 EXTRACT_CHUNK_FACTS = """\
 Extract all important facts from this text.
@@ -13,7 +22,7 @@ Text:
 
 Facts: /no_think"""
 
-# ── Pass 2: SUMMARIZE from extracted facts only ──
+# ── Extract path (long docs): Pass 2 — SUMMARIZE from extracted facts ──
 
 SUMMARIZE_FACTS = """\
 Write a {target_words}-word summary using only these facts.

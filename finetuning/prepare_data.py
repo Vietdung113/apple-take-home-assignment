@@ -74,7 +74,9 @@ def _process_one(example: dict) -> dict | None:
         return None
 
     messages = build_messages(doc, summary)
-    total_tokens = len(_tokenizer.apply_chat_template(messages, tokenize=True))
+    # Format messages and tokenize
+    formatted = _tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
+    total_tokens = len(_tokenizer.encode(formatted, add_special_tokens=False))
 
     return {"messages": messages, "total_tokens": total_tokens}
 
@@ -138,6 +140,10 @@ def main():
         "--workers", type=int, default=None,
         help="Number of parallel workers (default: cpu_count)",
     )
+    parser.add_argument(
+        "--max-samples", type=int, default=None,
+        help="Limit number of samples per split (for testing)",
+    )
     args = parser.parse_args()
 
     budgets = args.max_tokens or DEFAULT_BUDGETS
@@ -153,7 +159,10 @@ def main():
     splits = ["train", "validation", "test"]
     tokenized = {}
     for split_name in splits:
-        tokenized[split_name] = tokenize_split(raw[split_name], num_workers, split_name)
+        split_data = raw[split_name]
+        if args.max_samples is not None:
+            split_data = split_data.select(range(min(args.max_samples, len(split_data))))
+        tokenized[split_name] = tokenize_split(split_data, num_workers, split_name)
 
     # ── Filter by each budget and save ───────────────────────────────
     print()

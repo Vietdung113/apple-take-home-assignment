@@ -6,6 +6,7 @@ from api_service.agents.state import SummaryState
 
 CHUNK_SIZE = 6000       # chars per chunk
 OVERLAP_SENTENCES = 2   # overlap sentences between chunks
+LONG_DOC_THRESHOLD = 60000  # ~15K tokens (1 token ≈ 4 chars)
 
 # Sentence splitter: split on ". " followed by uppercase, or common patterns
 _SENT_RE = re.compile(r'(?<=[.!?])\s+(?=[A-Z])')
@@ -16,17 +17,8 @@ def _split_sentences(text: str) -> list[str]:
     return _SENT_RE.split(text)
 
 
-def chunk_document_node(state: SummaryState) -> dict:
-    """Split document into chunks of ~6000 chars at sentence boundaries."""
-    doc = state["document"]
-    doc_words = len(doc.split())
-    target_words = max(80, doc_words // 18)
-
-    # Short docs: no chunking needed
-    if len(doc) <= CHUNK_SIZE * 1.3:
-        print(f"  Chunk: 1 chunk (doc {len(doc):,} chars, no split needed)")
-        return {"chunks": [doc], "target_words": target_words}
-
+def _chunk_long_document(doc: str) -> list[str]:
+    """Split long document into chunks."""
     sentences = _split_sentences(doc)
 
     # If sentence splitting fails (e.g. no periods), fall back to char-based
@@ -45,10 +37,7 @@ def chunk_document_node(state: SummaryState) -> dict:
             chunk_len += len(w) + 1
         if chunk_words:
             chunks.append(" ".join(chunk_words))
-
-        print(f"  Chunk: {len(chunks)} chunks from {len(doc):,} chars "
-              f"(word-based split)")
-        return {"chunks": chunks, "target_words": target_words}
+        return chunks
 
     # Sentence-based chunking
     chunks = []
@@ -70,7 +59,35 @@ def chunk_document_node(state: SummaryState) -> dict:
     if current_sents:
         chunks.append(" ".join(current_sents))
 
-    print(f"  Chunk: {len(chunks)} chunks from {len(doc):,} chars "
-          f"(avg {sum(len(c) for c in chunks) // len(chunks):,} chars/chunk)")
+    return chunks
 
-    return {"chunks": chunks, "target_words": target_words}
+
+def chunk_document_node(state: SummaryState) -> dict:
+    """Determine routing: direct summarize or chunked pipeline."""
+    doc = state["document"]
+    doc_len = len(doc)
+    doc_words = len(doc.split())
+    target_words = max(80, doc_words // 18)
+
+    # Check if document is long enough to require chunking
+    is_long = doc_len >= LONG_DOC_THRESHOLD
+
+    if not is_long:
+        # Short/medium doc: use direct summarize path
+        print(f"  Route: DIRECT (doc {doc_len:,} chars < {LONG_DOC_THRESHOLD:,} threshold)")
+        return {
+            "chunks": [],
+            "target_words": target_words,
+            "is_long_document": False,
+        }
+    else:
+        # Long doc: use extract pipeline
+        chunks = _chunk_long_document(doc)
+        avg_chunk_len = sum(len(c) for c in chunks) // len(chunks) if chunks else 0
+        print(f"  Route: EXTRACT ({len(chunks)} chunks, "
+              f"doc {doc_len:,} chars, avg {avg_chunk_len:,} chars/chunk)")
+        return {
+            "chunks": chunks,
+            "target_words": target_words,
+            "is_long_document": True,
+        }

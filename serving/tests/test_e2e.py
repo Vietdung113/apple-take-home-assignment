@@ -19,7 +19,7 @@ from api_service.agents.graph import pipeline
 async def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else "short"
 
-    dataset_path = Path(__file__).parent.parent / "eval" / "eval_dataset.json"
+    dataset_path = Path(__file__).parent.parent.parent / "eval" / "eval_dataset.json"
     samples = json.loads(dataset_path.read_text())
 
     if mode == "longest":
@@ -48,17 +48,23 @@ async def main():
     t_total = time.time() - t_total
 
     summary = result["final_summary"]
-    facts = result["extracted_facts"]
-    n_facts = facts.count("\n- ") + (1 if facts.startswith("- ") else 0)
+    is_long = result.get("is_long_document", False)
+    facts = result.get("extracted_facts", "")
+    n_facts = facts.count("\n- ") + (1 if facts.startswith("- ") else 0) if facts else 0
 
     print(f"\n{'='*60}")
     print(f"  RESULT  (total: {t_total:.1f}s)")
     print(f"{'='*60}")
+    print(f"  Path: {'EXTRACT' if is_long else 'DIRECT'}")
     print(f"  Chunks: {len(result.get('chunks', []))}")
-    print(f"  Facts extracted: {n_facts}")
+    if is_long:
+        print(f"  Facts extracted: {n_facts}")
     print(f"  Summary: {len(summary):,} chars (~{len(summary.split())} words)")
-    print(f"\n--- EXTRACTED FACTS ---\n")
-    print(facts)
+
+    if is_long and facts:
+        print(f"\n--- EXTRACTED FACTS ---\n")
+        print(facts)
+
     print(f"\n--- AGENT SUMMARY ---\n")
     print(summary)
     print(f"\n--- REFERENCE (first 1000 chars) ---\n")
