@@ -189,7 +189,8 @@ def main():
     # ── Save adapter ─────────────────────────────────────────────────
     adapter_dir = config.get("adapter_dir", f"{output_dir}/adapter")
     print(f"\nSaving LoRA adapter to {adapter_dir}")
-    model.save_lora(adapter_dir)
+    model.save_pretrained(adapter_dir)
+    tokenizer.save_pretrained(adapter_dir)
 
     # ── Export GGUF ──────────────────────────────────────────────────
     if args.export_gguf:
