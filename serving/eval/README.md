@@ -1,114 +1,108 @@
-# Evaluation Scripts
+# Evaluation
 
-## Overview
+3-way comparison: **base model vs fine-tuned model vs agentic pipeline**.
 
-- `eval_adapter.py` — Compare base model vs fine-tuned adapter (ROUGE + LLM-as-judge)
-- `eval_judge.py` — Compare baseline vs agentic pipeline (legacy)
-- `eval_rouge.py` — ROUGE-only evaluation
-- `prepare_dataset.py` — Create stratified test set from GovReport
+## Metrics
+
+- **ROUGE-1, ROUGE-2, ROUGE-L** (n-gram overlap with reference)
+- **LLM-as-judge** (Qwen2.5-32B): coverage, specificity, consistency, conciseness
 
 ## Setup
 
-1. **Prepare eval dataset**
+### 1. Prepare eval dataset
+
 ```bash
 cd serving
 uv run python eval/prepare_dataset.py
 # → eval/eval_dataset.json (10 samples: 3 short, 3 medium, 4 long)
 ```
 
-2. **Configure eval/.env**
-```bash
-cp eval/.env.example eval/.env
-# Edit eval/.env with your server URLs
-```
+### 2. Start inference servers on vast.ai
 
-## Adapter Evaluation
-
-Compares **base model vs fine-tuned adapter** on 10 stratified samples.
-
-### 1. Start Judge Server
+See `inference-server-eval/README.md`:
 
 ```bash
-# On vast.ai or local with GPU
-cd inference-server-judge
-bash setup_judge.sh
-# → http://localhost:8001 (Qwen2.5-32B-Instruct)
+ssh -p <port> root@<vast.ai-host>
+cd /workspace/repo/inference-server-eval
+
+# Download models
+bash download_models.sh
+
+# Export fine-tuned GGUF
+cd ../finetuning
+bash setup.sh sft 8k --export-gguf
+cp output/sft_8k/gguf/*.gguf /workspace/models/Qwen3-0.6B-sft-8k-Q4_K_M.gguf
+
+# Start 3 llama.cpp servers
+cd ../inference-server-eval
+bash setup_servers.sh
 ```
 
-### 2. Start Base Model Server
+### 3. Start agent API (uses fine-tuned model)
 
 ```bash
-# Option A: Docker (llama.cpp)
-cd inference-server
-docker compose up
-# → http://localhost:8100
-
-# Option B: vLLM
-vllm serve Qwen/Qwen3-0.6B --port 8100 --dtype bfloat16
+# Terminal 4 on vast.ai
+cd /workspace/repo/serving
+export INFERENCE_BASE_URL=http://localhost:8200/v1  # use fine-tuned model
+uv run uvicorn api_service.main:app --host 0.0.0.0 --port 8300
 ```
 
-### 3. Start Adapter Model Server
-
-```bash
-# vLLM with LoRA adapter
-vllm serve Qwen/Qwen3-0.6B --port 8200 --dtype bfloat16 \
-    --enable-lora \
-    --lora-modules adapter=../finetuning/output/sft_8k/adapter
-# → http://localhost:8200
-```
-
-### 4. Run Evaluation
+### 4. Configure eval/.env
 
 ```bash
 cd serving
-uv run python eval/eval_adapter.py
+cp eval/.env.example eval/.env
+# URLs should point to vast.ai servers (or use SSH tunnel)
 ```
 
-### Output
+### 5. Run evaluation
+
+```bash
+uv run python eval/eval_all.py
+```
+
+## Output
 
 ```
-  ADAPTER EVALUATION  (10 examples)
+  3-WAY EVALUATION  (10 examples)
   ════════════════════════════════════════════════════════
 
   ── OVERALL (10 examples) ──
 
-  Metric         Base      Adapter      Delta
-  ----------------------------------------------
-  rouge1       0.3421      0.4123    +0.0702
-  rouge2       0.1821      0.2341    +0.0520
-  rougeL       0.3012      0.3823    +0.0811
+  Metric       Base      Finetuned      Agent
+  --------------------------------------------
+  rouge1     0.3421       0.4123     0.4456
+  rouge2     0.1821       0.2341     0.2678
+  rougeL     0.3012       0.3823     0.4123
 
-  Dimension    Base      Adapter      Delta
-  ----------------------------------------------
-  coverage       3.2        4.1       +0.9
-  specificity    3.0        4.3       +1.3
-  consistency    3.5        4.0       +0.5
-  conciseness    3.8        3.9       +0.1
-  ----------------------------------------------
-  Weighted       3.28       4.13      +0.85
+  Dimension  Base      Finetuned      Agent
+  --------------------------------------------
+  coverage     3.2         4.1         4.5
+  specificity  3.0         4.3         4.6
+  consistency  3.5         4.0         4.2
+  conciseness  3.8         3.9         3.7
+  --------------------------------------------
+  Weighted     3.28        4.13        4.42
 
-  Avg time (s)   1.2        1.3
+  Avg time (s) 1.2         1.3         4.8
 
-  Results saved to eval_adapter_results.json
+  Results saved to eval_all_results.json
 ```
 
-## Evaluation Metrics
+## Servers Architecture
 
-### ROUGE (n-gram overlap)
-- **rouge1**: Unigram overlap
-- **rouge2**: Bigram overlap
-- **rougeL**: Longest common subsequence
+```
+vast.ai instance (RTX 4090 24GB):
 
-### LLM-as-Judge (Qwen2.5-32B)
-- **Coverage** (30%): Answers who/what/where/when/why?
-- **Specificity** (30%): Uses concrete names/numbers/dates?
-- **Consistency** (25%): All facts accurate vs source?
-- **Conciseness** (15%): No filler/repetition?
-
-Scores: 1-5 scale, weighted average reported.
+  Port 8100: llama.cpp → Base GGUF (Qwen3-0.6B)
+  Port 8200: llama.cpp → Fine-tuned GGUF (Qwen3-0.6B + adapter)
+  Port 8001: llama.cpp → Judge GGUF (Qwen2.5-32B Q4_K_M)
+  Port 8300: FastAPI   → Agent pipeline (calls :8200)
+```
 
 ## Notes
 
-- vLLM `--enable-lora` allows runtime adapter loading
-- Judge server can be reused across multiple evals
-- Eval dataset is stratified by doc length (short/medium/long)
+- Agent is slower due to multi-step pipeline (chunking → extract → merge → summarize)
+- Judge evaluates all 3 summaries simultaneously for fair comparison
+- ROUGE measures n-gram overlap (good baseline, but misses paraphrasing)
+- LLM-as-judge captures semantic quality better than ROUGE

@@ -2,8 +2,9 @@
 
 Provides:
 - .env loader
-- RougeScores dataclass + compute_rouge()
-- Summary generators (baseline single-pass + agent pipeline)
+- ROUGE scoring
+- OpenAI-compatible inference client
+- Agent pipeline invocation
 """
 
 from __future__ import annotations
@@ -12,13 +13,11 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+import httpx
 from rouge_score import rouge_scorer
 
-from api_service.agents.graph import pipeline
-from api_service.model_loader import generate
 
-
-# ── Load .env file ──────────────────────────────────────────
+# ── Load .env ────────────────────────────────────────────────────────────
 
 
 def load_dotenv(path: Path | None = None):
@@ -38,7 +37,7 @@ def load_dotenv(path: Path | None = None):
         os.environ.setdefault(key, value)
 
 
-# ── ROUGE scoring ──────────────────────────────────────────
+# ── ROUGE scoring ────────────────────────────────────────────────────────
 
 _rouge = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL"], use_stemmer=True)
 
@@ -50,9 +49,9 @@ class RougeScores:
     rougeL: float = 0.0  # F1
 
 
-def compute_rouge(summary: str, reference: str) -> RougeScores:
-    """Compute ROUGE-1/2/L F1 scores between summary and reference."""
-    scores = _rouge.score(reference, summary)
+def compute_rouge(prediction: str, reference: str) -> RougeScores:
+    """Compute ROUGE F1 scores."""
+    scores = _rouge.score(reference, prediction)
     return RougeScores(
         rouge1=scores["rouge1"].fmeasure,
         rouge2=scores["rouge2"].fmeasure,
@@ -60,22 +59,39 @@ def compute_rouge(summary: str, reference: str) -> RougeScores:
     )
 
 
-# ── Summary generators ─────────────────────────────────────
+# ── Inference client ─────────────────────────────────────────────────────
 
 
-async def generate_baseline(doc: str, max_doc_chars: int = 28_000) -> str:
-    """Single-pass: feed document directly to the model (truncated to fit context)."""
-    truncated = doc[:max_doc_chars]
-    prompt = (
-        "Summarize the following document concisely, "
-        "covering all key points.\n\n"
-        f"Document:\n{truncated}\n\n"
-        "Summary: /no_think"
-    )
-    return await generate(prompt, max_new_tokens=1024)
+async def generate_summary(
+    server_url: str, document: str, max_tokens: int = 512
+) -> str:
+    """Generate summary via OpenAI-compatible API (llama.cpp/vLLM)."""
+    prompt = f"Summarize the following document:\n\n{document}\n\nSummary:"
+    async with httpx.AsyncClient(base_url=server_url, timeout=120.0) as client:
+        resp = await client.post(
+            "/v1/chat/completions",
+            json={
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": max_tokens,
+                "temperature": 0.3,
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        content = data["choices"][0]["message"]["content"]
+        return content.strip()
 
 
-async def generate_agent(doc: str) -> str:
-    """Two-pass: run the agent pipeline (extract facts -> summarize from facts)."""
-    result = await pipeline.ainvoke({"document": doc})
-    return result["final_summary"]
+# ── Agent pipeline ───────────────────────────────────────────────────────
+
+
+async def generate_agent_summary(document: str, api_url: str) -> str:
+    """Call agentic summarization pipeline via POST /summarize."""
+    async with httpx.AsyncClient(base_url=api_url, timeout=300.0) as client:
+        resp = await client.post(
+            "/summarize",
+            json={"document": document},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return data["summary"].strip()
