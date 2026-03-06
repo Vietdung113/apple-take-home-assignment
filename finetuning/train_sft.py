@@ -94,7 +94,7 @@ def main():
         max_seq_length=max_seq,
         load_in_4bit=True,
         max_lora_rank=lora_rank,
-        gpu_memory_utilization=0.6,
+        gpu_memory_utilization=config.get("gpu_memory_utilization", 0.8),
     )
 
     # ── Apply QLoRA ──────────────────────────────────────────────────
@@ -110,6 +110,7 @@ def main():
         lora_dropout=config.get("lora_dropout", 0),
         bias="none",
         use_gradient_checkpointing="unsloth",
+        use_rslora=config.get("use_rslora", False),
         random_state=config.get("seed", 42),
     )
 
@@ -135,14 +136,14 @@ def main():
         output_dir=output_dir,
         learning_rate=config.get("learning_rate", 2e-4),
         adam_beta1=0.9,
-        adam_beta2=0.99,
+        adam_beta2=config.get("adam_beta2", 0.999),
         weight_decay=config.get("weight_decay", 0.1),
-        warmup_ratio=config.get("warmup_ratio", 0.03),
+        warmup_ratio=config.get("warmup_ratio", 0.05),
         lr_scheduler_type=config.get("lr_scheduler_type", "cosine"),
         optim="paged_adamw_8bit",
-        per_device_train_batch_size=config.get("per_device_train_batch_size", 4),
+        per_device_train_batch_size=config.get("per_device_train_batch_size", 16),
         per_device_eval_batch_size=1,
-        gradient_accumulation_steps=config.get("gradient_accumulation_steps", 4),
+        gradient_accumulation_steps=config.get("gradient_accumulation_steps", 2),
         num_train_epochs=config.get("num_train_epochs", 1),
         max_seq_length=max_seq,
         packing=False,
@@ -151,9 +152,13 @@ def main():
         eval_steps=config.get("eval_steps", 200),
         eval_strategy="steps",
         save_total_limit=3,
-        max_grad_norm=1.0,
+        max_grad_norm=config.get("max_grad_norm", 1.0),
         bf16=config.get("bf16", True),
         seed=config.get("seed", 42),
+        # Data loading optimizations
+        dataloader_num_workers=config.get("dataloader_num_workers", 4),
+        dataloader_prefetch_factor=config.get("dataloader_prefetch_factor", 2),
+        dataloader_pin_memory=config.get("dataloader_pin_memory", True),
         report_to="wandb" if config.get("use_wandb", True) else "none",
     )
 
