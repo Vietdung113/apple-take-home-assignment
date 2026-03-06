@@ -1,0 +1,32 @@
+[
+  {
+    "idx": 0,
+    "doc_chars": 64660,
+    "baseline_time": 88.61217188835144,
+    "agent_time": 111.84585618972778,
+    "baseline_rouge": {
+      "rouge1": 0.4540682414698163,
+      "rouge2": 0.1473684210526316,
+      "rougeL": 0.19685039370078738
+    },
+    "agent_rouge": {
+      "rouge1": 0.5042630937880634,
+      "rouge2": 0.10744810744810745,
+      "rougeL": 0.1997563946406821
+    },
+    "baseline_judge": {
+      "coverage": 4,
+      "consistency": 5,
+      "coherence": 5,
+      "conciseness": 4,
+      "fluency": 5
+    },
+    "agent_judge": {
+      "coverage": 3,
+      "consistency": 5,
+      "coherence": 4,
+      "conciseness": 4,
+      "fluency": 5
+    }
+  }
+]

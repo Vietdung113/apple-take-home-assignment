@@ -1,0 +1,47 @@
+# GRPO fine-tuning config for Qwen3-0.6B (Unsloth + CUDA on vast.ai)
+
+model: "unsloth/Qwen3-0.6B"
+
+# LoRA
+lora_rank: 32
+lora_alpha: 32
+lora_dropout: 0
+target_modules:
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - up_proj
+  - down_proj
+
+# GRPO training
+max_seq_length: 4096
+max_prompt_length: 3072
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 4
+num_generations: 4          # completions per prompt for reward comparison
+learning_rate: 5.0e-6
+warmup_ratio: 0.1
+lr_scheduler_type: "cosine"
+weight_decay: 0.1
+bf16: true
+max_steps: 250              # ~200 steps before rewards improve
+logging_steps: 1
+save_steps: 50
+seed: 42
+
+# Data
+dataset: "ccdv/govreport-summarization"
+max_train_samples: 50       # small run; set to 0 for full
+max_val_samples: 10
+
+# Monitoring (wandb.ai)
+use_wandb: true
+wandb_project: "qwen3-govreport-grpo"
+
+# Output
+output_dir: "output/grpo"
+adapter_dir: "output/grpo/adapter"
+gguf_dir: "output/grpo/gguf"
+gguf_quant: "q4_k_m"

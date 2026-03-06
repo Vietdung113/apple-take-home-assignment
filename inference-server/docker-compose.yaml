@@ -1,0 +1,56 @@
+services:
+  # ── Production: NVIDIA GPU with vLLM ──
+  vllm:
+    image: vllm/vllm-openai:latest
+    profiles: ["gpu"]
+    ports:
+      - "${PORT:-8100}:8000"
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    ipc: host
+    command:
+      - --model
+      - ${VLLM_MODEL:-unsloth/Qwen3-0.6B}
+      - --tokenizer
+      - ${VLLM_TOKENIZER:-Qwen/Qwen3-0.6B}
+      - --served-model-name
+      - qwen3-0.6b
+      - --max-model-len
+      - "${CTX_SIZE:-4096}"
+      - --gpu-memory-utilization
+      - "0.9"
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  # ── CPU-only: llama.cpp in Docker (no GPU) ──
+  llama-cpu:
+    build: .
+    profiles: ["cpu"]
+    ports:
+      - "${PORT:-8100}:8080"
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  hf-cache:
