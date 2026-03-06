@@ -93,7 +93,6 @@ def main():
         model_name=config["model"],
         max_seq_length=max_seq,
         load_in_4bit=True,
-        fast_inference=True,
         max_lora_rank=lora_rank,
         gpu_memory_utilization=0.6,
     )
