@@ -6,9 +6,11 @@ chat template application and loss masking on user tokens.
 Run on a vast.ai GPU instance via setup.sh.
 
 Usage:
-    python train_sft.py --config configs/sft_8k.yaml                  # full run
-    python train_sft.py --config configs/sft_8k.yaml --max-samples 50 # smoke test
-    python train_sft.py --config configs/sft_8k.yaml --export-gguf    # train + GGUF
+    python train_sft.py --config configs/sft_8k.yaml                          # full run
+    python train_sft.py --config configs/sft_8k.yaml --max-samples 10         # smoke test
+    python train_sft.py --config configs/sft_8k.yaml --num-epochs 2           # 2 epochs
+    python train_sft.py --config configs/sft_8k.yaml --max-samples 10 --num-epochs 2  # smoke test 2 epochs
+    python train_sft.py --config configs/sft_8k.yaml --export-gguf            # train + GGUF
 """
 
 import argparse
@@ -71,11 +73,16 @@ def main():
     parser = argparse.ArgumentParser(description="SFT fine-tuning with Unsloth")
     parser.add_argument("--config", default="configs/sft_8k.yaml")
     parser.add_argument("--max-samples", type=int, help="Override training sample count")
+    parser.add_argument("--num-epochs", type=int, help="Override num_train_epochs")
     parser.add_argument("--export-gguf", action="store_true", help="Export GGUF after training")
     args = parser.parse_args()
 
     config_path = pathlib.Path(__file__).parent / args.config
     config = load_config(config_path)
+
+    # Override config with CLI args
+    if args.num_epochs is not None:
+        config["num_train_epochs"] = args.num_epochs
 
     max_seq = config.get("max_seq_length", 8192)
     lora_rank = config.get("lora_rank", 32)
