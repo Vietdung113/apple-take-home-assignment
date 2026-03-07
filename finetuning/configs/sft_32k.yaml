@@ -1,6 +1,6 @@
 # SFT fine-tuning config — 32K context window (OPTIMIZED)
 
-model: "unsloth/Qwen3-0.6B"
+model: "unsloth/Qwen3-0.6B-Instruct"
 data_label: "32k"
 
 # LoRA (OPTIMIZED)

@@ -1,12 +1,14 @@
 """Progressive training: 8K → 16K → 32K with curriculum learning.
 
 Strategy:
-1. Train on 8K data (1 epoch) - learn short document summarization
-2. Continue from 8K checkpoint on 16K data (1 epoch) - adapt to medium docs
+1. Train on 8K data (3 epochs) - learn short document summarization
+2. Continue from 8K checkpoint on 16K data (2 epochs) - adapt to medium docs
 3. Continue from 16K checkpoint on 32K data (1 epoch) - adapt to long docs
 
 This curriculum learning approach helps the model progressively learn to handle
 longer contexts while building on previously learned patterns.
+
+Base model: Qwen3-0.6B-Instruct (instruction-tuned, better at following prompts)
 
 Usage:
     python train_progressive.py --output-base output/progressive
@@ -126,16 +128,16 @@ def main():
 
     stages = [
         {
-            "name": "Stage 1: 8K (1 epoch)",
+            "name": "Stage 1: 8K (3 epochs)",
             "config": "configs/sft_8k.yaml",
-            "epochs": 1,
+            "epochs": 3,
             "output": output_base / "stage1_8k",
             "checkpoint_from": None,
         },
         {
-            "name": "Stage 2: 16K (1 epoch)",
+            "name": "Stage 2: 16K (2 epochs)",
             "config": "configs/sft_16k.yaml",
-            "epochs": 1,
+            "epochs": 2,
             "output": output_base / "stage2_16k",
             "checkpoint_from": output_base / "stage1_8k",
         },
