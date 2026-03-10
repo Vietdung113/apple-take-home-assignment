@@ -21,31 +21,31 @@ from tqdm.asyncio import tqdm_asyncio
 
 # Add finetuning config to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "finetuning" / "config"))
-from prompt_loader import get_inference_prompt_base_model, get_generation_params
+from prompt_loader import get_inference_prompt_instruct_model, get_generation_params
 
 
 FINETUNED_URL = "http://localhost:8100/v1"  # Fine-tuned
 BASE_URL = "http://localhost:8200/v1"       # Base (no fine-tuning)
 
 
-async def generate_summary(url: str, prompt: str, gen_params: dict) -> dict:
+async def generate_summary(url: str, messages: list[dict], gen_params: dict) -> dict:
     """Generate summary from model."""
     try:
         async with httpx.AsyncClient(base_url=url, timeout=120.0) as client:
             payload = {
-                "prompt": prompt,
+                "messages": messages,
                 "max_tokens": gen_params["max_tokens"],
                 "temperature": gen_params["temperature"],
                 "top_p": gen_params["top_p"],
                 "repeat_penalty": gen_params["repetition_penalty"],
-                "stop": ["\n\n\nGovernment Report:", "\n\nExpert Summary:", "\n\n\n", "<|endoftext|>"],
+                "stop": gen_params.get("stop", []),
             }
 
-            resp = await client.post("/completions", json=payload)
+            resp = await client.post("/chat/completions", json=payload)
             resp.raise_for_status()
             data = resp.json()
 
-            text = data["choices"][0]["text"].strip()
+            text = data["choices"][0]["message"]["content"].strip()
 
             return {
                 "summary": text,
@@ -59,11 +59,11 @@ async def generate_summary(url: str, prompt: str, gen_params: dict) -> dict:
 
 async def compare_sample(sample_id: int, document: str, reference: str, gen_params: dict) -> dict:
     """Compare base vs fine-tuned on one sample."""
-    prompt = get_inference_prompt_base_model(document)
+    messages = get_inference_prompt_instruct_model(document)
 
     # Generate from both models in parallel
-    finetuned_task = generate_summary(FINETUNED_URL, prompt, gen_params)
-    base_task = generate_summary(BASE_URL, prompt, gen_params)
+    finetuned_task = generate_summary(FINETUNED_URL, messages, gen_params)
+    base_task = generate_summary(BASE_URL, messages, gen_params)
 
     finetuned, base = await asyncio.gather(finetuned_task, base_task)
 

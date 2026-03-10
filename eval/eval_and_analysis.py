@@ -29,7 +29,7 @@ from sentence_transformers import SentenceTransformer
 
 # Add finetuning config directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "finetuning" / "config"))
-from prompt_loader import get_inference_prompt_base_model, get_judge_prompt, get_generation_params
+from prompt_loader import get_inference_prompt_instruct_model, get_judge_prompt, get_generation_params
 
 load_dotenv()
 
@@ -52,9 +52,9 @@ JUDGE_MODEL_NAME = "nvidia/nvidia-nemotron-nano-9b-v2"
 
 
 async def call_base_model(document: str, max_tokens: int = None) -> dict:
-    """Call base model via llama.cpp OpenAI-compatible API.
+    """Call base model via llama.cpp OpenAI-compatible chat API.
 
-    Uses completion API (not chat) since Qwen3-0.6B was fine-tuned as a base model.
+    Uses chat completions API with Qwen3's native chat format.
     """
 
     # Load generation params from config
@@ -62,13 +62,13 @@ async def call_base_model(document: str, max_tokens: int = None) -> dict:
     if max_tokens is None:
         max_tokens = gen_params["max_tokens"]
 
-    # Load prompt from centralized config (base model format)
-    prompt = get_inference_prompt_base_model(document)
+    # Load prompt as chat messages (instruct format)
+    messages = get_inference_prompt_instruct_model(document)
 
     start = time.time()
     async with httpx.AsyncClient(base_url=BASE_MODEL_URL, timeout=120.0) as client:
         payload = {
-            "prompt": prompt,
+            "messages": messages,
             "max_tokens": max_tokens,
             "temperature": gen_params["temperature"],
             "top_p": gen_params["top_p"],
@@ -76,12 +76,12 @@ async def call_base_model(document: str, max_tokens: int = None) -> dict:
             # Stop sequences from config to prevent rambling
             "stop": gen_params.get("stop", []),
         }
-        resp = await client.post("/completions", json=payload)
+        resp = await client.post("/chat/completions", json=payload)
         resp.raise_for_status()
         data = resp.json()
 
-        # Completion API returns "text" in choices, not "content"
-        summary = data["choices"][0]["text"].strip()
+        # Chat API returns "content" in message
+        summary = data["choices"][0]["message"]["content"].strip()
 
         # Strip markdown formatting (model output has it, references don't)
         summary = re.sub(r'\*\*([^*]+)\*\*', r'\1', summary)

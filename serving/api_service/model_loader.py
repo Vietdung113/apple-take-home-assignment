@@ -59,6 +59,7 @@ async def generate(
         "temperature": temp,
         "top_p": _GEN_PARAMS["top_p"],
         "repetition_penalty": rep_penalty,
+        "stop": _GEN_PARAMS.get("stop", []),
     }
 
     async with _get_client() as client:
