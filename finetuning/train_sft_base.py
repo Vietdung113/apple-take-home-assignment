@@ -14,7 +14,7 @@ from trl import SFTConfig, SFTTrainer
 
 # Add config directory to path
 sys.path.insert(0, str(Path(__file__).parent / "config"))
-from prompt_loader import get_training_prompt_base_model
+from prompt_loader import get_system_prompt, get_user_instruction, get_summary_instruction
 
 # Load environment variables
 load_dotenv()
@@ -154,17 +154,31 @@ def train(
             use_dora=lora_cfg.get("use_dora", False),
         )
 
-    # Preprocessing: format samples
+    # Preprocessing: format samples as prompt-completion pairs
+    # SFTTrainer computes loss ONLY on completion tokens by default
     def format_sample(example):
-        """Format sample for training. Uses centralized prompt from config/prompts.yaml"""
+        """Format sample as conversational prompt-completion pair.
+
+        SFTTrainer with prompt-completion format automatically masks prompt
+        tokens (sets labels to -100) so loss is computed only on the
+        assistant's summary.
+        """
         document = example["document"]
         summary = example["summary"]
-        # Add EOS token so model learns when to stop
-        text = get_training_prompt_base_model(document, summary) + tokenizer.eos_token
 
-        # Add token length for filtering
-        tokens = tokenizer(text, truncation=False, add_special_tokens=False)['input_ids']
-        example["text"] = text
+        user_content = f"{get_user_instruction()}{document}\n\n{get_summary_instruction()}"
+
+        example["prompt"] = [
+            {"role": "system", "content": get_system_prompt()},
+            {"role": "user", "content": user_content},
+        ]
+        example["completion"] = [
+            {"role": "assistant", "content": summary},
+        ]
+
+        # Estimate token length for filtering (approximate via full text)
+        full_text = f"{get_system_prompt()}\n{user_content}\n{summary}"
+        tokens = tokenizer(full_text, truncation=False, add_special_tokens=False)['input_ids']
         example["token_length"] = len(tokens)
         return example
 
@@ -193,10 +207,6 @@ def train(
     train_ds = train_ds.sort("token_length")
     print(f"  Sorted train by token_length (min={train_ds[0]['token_length']}, max={train_ds[-1]['token_length']})")
 
-    # Show example
-    print("\nExample (first 500 chars):")
-    print("-" * 80)
-    print(train_ds[0]["text"][:500] + "...")
     print("-" * 80)
 
     # Training configuration
@@ -286,7 +296,6 @@ def train(
         args=training_args,
         train_dataset=train_ds,
         eval_dataset=val_ds,
-        dataset_text_field="text",
     )
 
     # Train
