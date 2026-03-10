@@ -127,6 +127,20 @@ def train(
         model.config.think_budget = 0
         print("  Disabled Qwen3 thinking budget (not needed for summarization)")
 
+    # Override chat template to remove <think> blocks entirely.
+    # Qwen3's default template always injects <think></think> in assistant messages,
+    # which wastes tokens and causes train/inference mismatch.
+    tokenizer.chat_template = (
+        "{% for message in messages %}"
+        "<|im_start|>{{ message['role'] }}\n"
+        "{{ message['content'] }}<|im_end|>\n"
+        "{% endfor %}"
+        "{% if add_generation_prompt %}"
+        "<|im_start|>assistant\n"
+        "{% endif %}"
+    )
+    print("  Overrode chat template (removed <think> blocks)")
+
     # Apply QLoRA adapters
     if resume_from:
         print(f"\nResuming from checkpoint: {resume_from}")
