@@ -1,0 +1,114 @@
+# GRPO Training Configuration
+# Group Relative Policy Optimization with LLM-as-reward
+
+# ── Model Configuration ──────────────────────────────────────────────────────
+
+model:
+  name: "unsloth/Qwen3-0.6B"
+  max_seq_length: 32768
+
+# ── GRPO Configuration ───────────────────────────────────────────────────────
+
+grpo:
+  # Generation settings for candidates
+  num_generations: 4  # K candidates per sample (4-8 typical)
+
+  generation:
+    max_tokens: 1024
+    temperature: 0.8  # Higher for diversity during generation
+    top_p: 0.9
+
+  # GRPO hyperparameters
+  beta: 0.1  # KL penalty coefficient (prevent drift from SFT)
+  group_size: 4  # Number of candidates to compare in ranking
+
+  # Reward weights (must sum to 1.0)
+  reward_weights:
+    coverage: 0.3      # Capture all key points
+    specificity: 0.2   # Include numbers, dates, names
+    consistency: 0.4   # HIGHEST - prevent hallucination
+    conciseness: 0.1   # Well-structured
+
+  # Judge API settings
+  judge:
+    model: "nvidia/nvidia-nemotron-nano-9b-v2"
+    endpoint: "https://integrate.api.nvidia.com/v1"
+    max_concurrent: 3  # Rate limiting
+    retry_attempts: 2
+    timeout: 120
+
+# ── Training Hyperparameters ─────────────────────────────────────────────────
+
+training:
+  learning_rate: 1.0e-4  # Lower than SFT (fine-tuning from SFT checkpoint)
+  weight_decay: 0.15
+  warmup_ratio: 0.03
+  num_epochs: 2  # Fewer epochs for GRPO (1-2 typical)
+
+  batch_size: 1  # Small batch (K generations per sample is expensive)
+  grad_accum_steps: 16  # Effective batch = 16
+
+  lr_scheduler_type: "cosine"
+  optimizer: "adamw_8bit"
+  max_grad_norm: 1.0
+
+# ── LoRA Configuration ───────────────────────────────────────────────────────
+
+lora:
+  rank: 32
+  alpha: 64
+  dropout: 0
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+# ── Logging and Checkpointing ────────────────────────────────────────────────
+
+logging:
+  steps: 5  # More frequent for GRPO (slower training)
+  save_steps: 100
+  eval_steps: 100
+  save_total_limit: 3
+
+# ── Data Configuration ───────────────────────────────────────────────────────
+
+data:
+  train_file: "data/govreport_full/train.jsonl"
+  val_file: "data/govreport_full/val.jsonl"
+  val_split: 0.1
+
+  # Optional: Use subset for faster iteration
+  max_train_samples: null  # Set to e.g. 1000 for testing
+
+# ── Hardware Configuration ───────────────────────────────────────────────────
+
+hardware:
+  dataloader_num_workers: 2
+  use_bf16: true
+  seed: 42
+
+# ── Notes ────────────────────────────────────────────────────────────────────
+
+# GRPO Training Process:
+# 1. Start from SFT checkpoint (warm start)
+# 2. For each training sample:
+#    a. Generate K=4 candidate summaries
+#    b. Score each with LLM judge (Nemotron 9B)
+#    c. Compute rewards (weighted average of 4 dimensions)
+#    d. Update policy to increase prob of better candidates
+#
+# Expected Results:
+# - Judge scores increase (+0.2 to +0.5 per dimension)
+# - ROUGE may decrease slightly (optimizing for judge, not reference)
+# - Better coverage and specificity
+# - Risk: Hallucination if consistency weight too low
+#
+# Computational Cost:
+# - 4x slower than SFT (4 generations per sample)
+# - Plus judge API calls (async to minimize overhead)
+# - Estimated: 8-12 hours for 1 epoch on 16K samples

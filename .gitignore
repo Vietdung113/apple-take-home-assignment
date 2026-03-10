@@ -1,0 +1,10 @@
+.env
+*.pyc
+__pycache__/
+.venv/
+output/
+*.gguf
+models/finetuned/checkpoint-1600-gguf/
+finetuning/data/
+*.json
+*.jsonl

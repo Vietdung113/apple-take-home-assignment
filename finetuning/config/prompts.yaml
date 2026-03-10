@@ -1,0 +1,137 @@
+# Centralized prompt configuration
+# Single source of truth — edit here to update ALL prompts across training, eval, and serving.
+#
+# IMPORTANT: Training adds tokenizer.eos_token after summary to teach model when to stop.
+# Without EOS token, model will ramble indefinitely during inference.
+
+# ── Expert Persona ───────────────────────────────────────────────────────
+system_prompt: |
+  You are an expert summarizing government reports.
+
+  Guidelines:
+  • Read the entire document before summarizing
+  • Include all major findings and their significance
+  • Use only facts from the document - never invent numbers, dates, or names
+  • Organize clearly: context → findings → implications
+  • Match summary length to document complexity
+
+# ── User Instruction ─────────────────────────────────────────────────────
+user_instruction: |
+  Summarize the following government report.
+
+  Government Report:
+
+# ── Summary Instruction (appended after document) ────────────────────────
+summary_instruction: >-
+  Now write a summary covering: (1) what was examined and why,
+  (2) key findings and conclusions, (3) implications or significance.
+  Include specific numbers and details when available. Do not repeat information.
+
+# ── Generation Parameters ────────────────────────────────────────────────
+generation:
+  max_tokens: 1024
+  temperature: 0.3
+  top_p: 0.9
+  repetition_penalty: 1.2
+  stop:
+    - "\n\n\n"
+    - "###"
+    - "Government Report:"
+    - "Expert Summary:"
+    - "<|im_end|>"
+    - "<|endoftext|>"
+
+# ── Agent Prompts (serving pipeline) ─────────────────────────────────────
+# Direct path: short/medium docs (<100K chars / ~25K tokens)
+# Uses user_instruction + document + summary_instruction (assembled by prompt_loader)
+
+# Hierarchical path: long docs (≥100K chars / ~25K tokens)
+agent:
+  summarize_chunk: >-
+    Extract the key information from this section of a government report.
+    Cover: (1) what was examined and why, (2) key findings and conclusions,
+    (3) implications or significance. Include specific numbers, dates, and names.
+    Be thorough but concise.
+
+  merge_summaries: >-
+    Synthesize these section summaries into a single comprehensive government report summary.
+    Cover: (1) what was examined and why, (2) key findings and conclusions,
+    (3) implications or significance. Include specific numbers and details when available.
+    Do not repeat information. Integrate information across sections into a coherent narrative.
+    Eliminate redundancy. Preserve all critical quantitative data (numbers, dates, names).
+
+  extract_facts: >-
+    Extract all important facts from this government report section as bullet points.
+    Include: dollar amounts, percentages, statistics, dates, deadlines, organization names,
+    people, program names, key findings, recommendations, and problems identified.
+    Preserve exact numbers and dates.
+
+  synthesize_from_facts: >-
+    Using the extracted facts below, write a comprehensive government report summary.
+    Cover: (1) what was examined and why, (2) key findings and conclusions,
+    (3) implications or significance. Include specific numbers and details when available.
+    Do not repeat information.
+
+  extract_outline: >-
+    Identify the main topic(s) covered in this section of a government report.
+    Be concise (1-2 sentences max):
+
+  extract_facts_with_context: >-
+    Extract all important facts, findings, and details from the CURRENT section
+    of a government report. Include specific numbers, dates, names, and recommendations.
+
+  initial_summarize: >-
+    Summarize this section of a government report.
+    Cover: (1) what was examined and why, (2) key findings and conclusions,
+    (3) implications or significance. Include specific numbers and details when available.
+
+  refine_summary: >-
+    You are building a comprehensive summary of a government report.
+    Update and expand the summary by integrating new information from the NEW SECTION.
+    Cover: (1) what was examined and why, (2) key findings and conclusions,
+    (3) implications or significance. Include specific numbers and details when available.
+    Do not repeat information.
+
+# ── Judge Prompt ─────────────────────────────────────────────────────────
+judge_prompt: |
+  You are an expert evaluator for text summarization quality.
+
+  Evaluate the following summary on these 4 dimensions:
+
+  **Original Document:**
+  {document}
+
+  **Reference Summary:**
+  {reference}
+
+  **Generated Summary:**
+  {generated}
+
+  ---
+
+  Rate the generated summary on a scale of 1-5 for each dimension:
+
+  1. **Coverage**: Does the summary capture all key points from the document?
+     - 1: Misses most key points
+     - 5: Captures all important information
+
+  2. **Specificity**: Does the summary include relevant specific details (numbers, names, dates)?
+     - 1: Very vague, no specifics
+     - 5: Includes appropriate specific details
+
+  3. **Consistency**: Is the summary factually consistent with the source document?
+     - 1: Contains multiple hallucinations or contradictions
+     - 5: Fully consistent, no hallucinations
+
+  4. **Conciseness**: Is the summary concise and well-structured?
+     - 1: Very verbose or poorly structured
+     - 5: Highly concise and well-organized
+
+  Respond in JSON format only:
+  {{
+    "coverage": <1-5>,
+    "specificity": <1-5>,
+    "consistency": <1-5>,
+    "conciseness": <1-5>,
+    "explanation": "<brief explanation>"
+  }}

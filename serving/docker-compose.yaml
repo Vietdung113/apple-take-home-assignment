@@ -1,0 +1,46 @@
+services:
+  # ── Phoenix: LLM observability ──
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    ports:
+      - "${PHOENIX_PORT:-6006}:6006"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:6006')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  # ── API: FastAPI agentic summarization pipeline ──
+  # Requires llama-server running natively on host for Metal GPU acceleration.
+  # Start it first:  ./eval/start_model.sh <model.gguf>  (runs on port 8080)
+  api:
+    build:
+      context: ..
+      dockerfile: serving/Dockerfile
+    ports:
+      - "${API_PORT:-8001}:8001"
+    environment:
+      - INFERENCE_BASE_URL=http://host.docker.internal:${LLAMA_PORT:-8080}/v1
+      - PHOENIX_COLLECTOR_ENDPOINT=http://phoenix:4317
+    depends_on:
+      phoenix:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  # ── Frontend: Gradio demo UI ──
+  fe:
+    build:
+      context: fe
+    ports:
+      - "${FE_PORT:-7860}:7860"
+    environment:
+      - API_URL=http://api:8001/summarize
+    depends_on:
+      api:
+        condition: service_started

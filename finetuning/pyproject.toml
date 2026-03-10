@@ -1,0 +1,29 @@
+[project]
+name = "finetuning"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.4",
+    "transformers",
+    "datasets",
+    "peft",
+    "trl",
+    "unsloth",
+    "pyyaml",
+    "rouge-score",
+    "wandb",
+    "openai>=2.26.0",
+    "python-dotenv",
+    "httpx",
+    "tqdm",
+    "matplotlib>=3.10.8",
+    "seaborn>=0.13.2",
+    "jupyter>=1.1.1",
+    "ipykernel>=7.2.0",
+    "spacy>=3.8.11",
+]
+
+[tool.uv]
+find-links = [
+    "https://download.pytorch.org/whl/cu124",
+]

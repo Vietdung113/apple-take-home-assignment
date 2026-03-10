@@ -1,0 +1,63 @@
+# Training configuration for QLoRA fine-tuning on GovReport
+# Adjust batch_size and grad_accum based on your hardware
+
+# ── Model Configuration ──────────────────────────────────────────────────────
+
+# Qwen3-0.6B: Latest architecture with QK-Norm, thinking budget, strong-to-weak distillation
+# Better for long documents, 2x faster training, 5x smaller model
+model_name: "unsloth/Qwen3-0.6B"  # Qwen3 base model (2025)
+max_seq_length: 32768  # 32K context with QK-Norm stability
+
+# ── QLoRA Configuration ──────────────────────────────────────────────────────
+
+lora:
+  rank: 32  # Smaller rank for smaller model (0.6B vs 3B)
+  alpha: 64  # alpha = 2 * rank
+  dropout: 0  # Set to 0 for Unsloth fast patching (required in 2026.3.3+)
+  target_modules:
+    - "q_proj"     # Coverage: find all key points
+    - "k_proj"     # Coverage: match broad patterns
+    - "v_proj"     # Specificity: extract detailed content
+    - "o_proj"     # Coverage: aggregate information
+    - "gate_proj"  # Specificity: reason about numbers/dates
+    - "up_proj"    # Specificity: process factual details
+    - "down_proj"  # Both: output generation
+
+# ── Training Hyperparameters ─────────────────────────────────────────────────
+
+training:
+  learning_rate: 2.0e-4  # Higher for dropout=0 (standard LoRA range without dropout)
+  weight_decay: 0.15
+  warmup_ratio: 0.03
+  num_epochs: 4  # 2,080 steps (sweet spot for convergence with lr=2e-4)
+
+  # Batch size configuration - Qwen3-0.6B needs less memory
+  batch_size: 4  # Can use larger batch size (5x smaller model)
+  eval_batch_size: 2  # Larger eval batch for faster validation
+  grad_accum_steps: 8  # Effective batch = 32
+
+  lr_scheduler_type: "cosine"
+  optimizer: "adamw_8bit"
+  max_grad_norm: 1.0
+
+# ── Logging and Checkpointing ────────────────────────────────────────────────
+
+logging:
+  steps: 10
+  save_steps: 200
+  eval_steps: 200
+  save_total_limit: 5
+
+# ── Data Configuration ───────────────────────────────────────────────────────
+
+data:
+  val_split: 0.1  # 10% validation split
+  train_file: "data/govreport_full/train.jsonl"
+  val_file: "data/govreport_full/val.jsonl"
+
+# ── Hardware Configuration ───────────────────────────────────────────────────
+
+hardware:
+  dataloader_num_workers: 2
+  use_bf16: true
+  seed: 42
