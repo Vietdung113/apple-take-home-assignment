@@ -168,32 +168,46 @@ def train(
             use_dora=lora_cfg.get("use_dora", False),
         )
 
-    # Preprocessing: format samples as prompt-completion pairs
-    # SFTTrainer computes loss ONLY on completion tokens by default
+    # Preprocessing: tokenize + create labels with prompt masking.
+    # Unsloth's SFTTrainer doesn't support prompt-completion format natively,
+    # so we tokenize ourselves and pass pre-tokenized data (input_ids + labels).
     def format_sample(example):
-        """Format sample as conversational prompt-completion pair.
+        """Tokenize and create labels that mask prompt tokens (-100).
 
-        SFTTrainer with prompt-completion format automatically masks prompt
-        tokens (sets labels to -100) so loss is computed only on the
-        assistant's summary.
+        Only the assistant's summary tokens contribute to the loss.
         """
         document = example["document"]
         summary = example["summary"]
 
         user_content = f"{get_user_instruction()}{document}\n\n{get_summary_instruction()}"
 
-        example["prompt"] = [
+        prompt_messages = [
             {"role": "system", "content": get_system_prompt()},
             {"role": "user", "content": user_content},
         ]
-        example["completion"] = [
+        full_messages = prompt_messages + [
             {"role": "assistant", "content": summary},
         ]
 
-        # Estimate token length for filtering (approximate via full text)
-        full_text = f"{get_system_prompt()}\n{user_content}\n{summary}"
-        tokens = tokenizer(full_text, truncation=False, add_special_tokens=False)['input_ids']
-        example["token_length"] = len(tokens)
+        # Tokenize prompt only (to know where completion starts)
+        prompt_text = tokenizer.apply_chat_template(
+            prompt_messages, tokenize=False, add_generation_prompt=True
+        )
+        prompt_ids = tokenizer(prompt_text, add_special_tokens=False)["input_ids"]
+
+        # Tokenize full conversation
+        full_text = tokenizer.apply_chat_template(
+            full_messages, tokenize=False, add_generation_prompt=False
+        )
+        full_ids = tokenizer(full_text, truncation=True, max_length=max_seq_length, add_special_tokens=False)["input_ids"]
+
+        # Create labels: -100 for prompt tokens, actual ids for completion tokens
+        prompt_len = len(prompt_ids)
+        labels = [-100] * prompt_len + full_ids[prompt_len:]
+
+        example["input_ids"] = full_ids
+        example["labels"] = labels
+        example["token_length"] = len(full_ids)
         return example
 
     print("\nPreprocessing data...")
@@ -221,6 +235,11 @@ def train(
     train_ds = train_ds.sort("token_length")
     print(f"  Sorted train by token_length (min={train_ds[0]['token_length']}, max={train_ds[-1]['token_length']})")
 
+    # Show example: verify masking
+    ex = train_ds[0]
+    n_masked = sum(1 for l in ex["labels"] if l == -100)
+    n_total = len(ex["labels"])
+    print(f"\n  Example: {n_total} tokens total, {n_masked} prompt masked, {n_total - n_masked} completion (loss)")
     print("-" * 80)
 
     # Training configuration
