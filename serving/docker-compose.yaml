@@ -21,7 +21,7 @@ services:
     ports:
       - "${API_PORT:-8001}:8001"
     environment:
-      - INFERENCE_BASE_URL=http://host.docker.internal:${LLAMA_PORT:-8080}/v1
+      - INFERENCE_BASE_URL=http://host.docker.internal:${LLAMA_PORT:-8100}/v1
       - PHOENIX_COLLECTOR_ENDPOINT=http://phoenix:4317
     depends_on:
       phoenix:

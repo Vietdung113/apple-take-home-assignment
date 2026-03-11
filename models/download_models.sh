@@ -4,7 +4,7 @@
 set -e
 
 MODELS_DIR="$(dirname "$0")"
-FILE_ID="18AiCk2gf-eBQSUe3m66kJwOMSMR5QNmk"
+FILE_ID="19dLrBVM1nIvPZ25XBhsvYk0oZdZnqCtO"
 OUTPUT="$MODELS_DIR/finetuned-qwen3-0.6b.Q4_K_M.gguf"
 
 echo ""
