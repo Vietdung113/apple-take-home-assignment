@@ -267,44 +267,50 @@ Stratification ensures evaluation of performance across all lengths, avoiding bi
 
 ### 3.4 Results
 
-**Base Model** (Qwen3-0.6B + prompt engineering, no fine-tuning, 95 samples):
+**Base Model** (Qwen3-0.6B + prompt engineering, no fine-tuning, 100 samples):
 
-| Metric | 8K (n=47) | 16K (n=28) | 32K (n=20) | Overall |
+| Metric | 8K (n=50) | 16K (n=30) | 32K (n=20) | Overall |
 |--------|-----------|------------|------------|---------|
 | ROUGE-1 | 0.355 | 0.410 | 0.406 | **0.382** |
+| ROUGE-2 | 0.088 | 0.120 | 0.103 | **0.100** |
 | ROUGE-L | 0.158 | 0.183 | 0.167 | **0.167** |
 | Embedding | 0.806 | 0.827 | 0.817 | **0.814** |
 | Coverage | 3.49 | 3.50 | 3.60 | **3.52** |
 | Specificity | 2.87 | 2.86 | 3.15 | **2.93** |
 | Consistency | 4.34 | 4.75 | 4.65 | **4.53** |
 | Conciseness | 4.49 | 4.50 | 4.50 | **4.49** |
+| Judge Avg | 3.80 | 3.90 | 3.98 | **3.87** |
 | Avg words | 429 | 512 | 594 | **488** |
 
-**Fine-tuned** (QLoRA checkpoint-300, 98 samples):
+**Fine-tuned** (QLoRA, 100 samples):
 
-| Metric | 8K (n=49) | 16K (n=30) | 32K (n=19) | Overall |
+| Metric | 8K (n=50) | 16K (n=30) | 32K (n=20) | Overall |
 |--------|-----------|------------|------------|---------|
-| ROUGE-1 | 0.436 | 0.482 | 0.502 | **0.463** |
-| ROUGE-L | 0.187 | 0.203 | 0.202 | **0.195** |
-| Embedding | 0.840 | 0.857 | 0.858 | **0.849** |
-| Coverage | 2.88 | 3.43 | 3.58 | **3.18** |
-| Specificity | 2.47 | 3.17 | 3.21 | **2.83** |
-| Consistency | 3.43 | 4.10 | 4.63 | **3.87** |
-| Conciseness | 2.76 | 3.70 | 4.26 | **3.34** |
-| Avg words | 810 | 742 | 816 | **791** |
+| ROUGE-1 | 0.378 | 0.401 | 0.398 | **0.389** |
+| ROUGE-2 | 0.136 | 0.151 | 0.139 | **0.141** |
+| ROUGE-L | 0.182 | 0.191 | 0.188 | **0.186** |
+| Embedding | 0.824 | 0.840 | 0.840 | **0.832** |
+| Coverage | 2.92 | 3.50 | 3.70 | **3.25** |
+| Specificity | 2.36 | 2.63 | 3.05 | **2.58** |
+| Consistency | 3.96 | 4.33 | 4.60 | **4.20** |
+| Conciseness | 3.94 | 4.23 | 4.40 | **4.12** |
+| Judge Avg | 3.29 | 3.68 | 3.94 | **3.54** |
+| Avg words | 251 | 273 | 298 | **267** |
 
 **Overall comparison:**
 
 | Metric | Base | Fine-tuned | Δ |
 |--------|------|-----------|---|
-| ROUGE-1 | 0.382 | 0.463 | **+21.2%** |
-| ROUGE-L | 0.167 | 0.195 | **+16.8%** |
-| Embedding | 0.814 | 0.849 | **+4.3%** |
-| Coverage | 3.52 | 3.18 | **-9.7%** |
-| Specificity | 2.93 | 2.83 | **-3.4%** |
-| Consistency | 4.53 | 3.87 | **-14.6%** |
-| Conciseness | 4.49 | 3.34 | **-25.6%** |
-| Avg words | 488 | 791 | **+62.1%** |
+| ROUGE-1 | 0.382 | 0.389 | **+1.9%** |
+| ROUGE-2 | 0.100 | 0.141 | **+40.5%** |
+| ROUGE-L | 0.167 | 0.186 | **+11.3%** |
+| Embedding | 0.814 | 0.832 | **+2.1%** |
+| Coverage | 3.52 | 3.25 | **-7.7%** |
+| Specificity | 2.93 | 2.58 | **-11.9%** |
+| Consistency | 4.53 | 4.20 | **-7.3%** |
+| Conciseness | 4.49 | 4.12 | **-8.2%** |
+| Judge Avg | 3.87 | 3.54 | **-8.5%** |
+| Avg words | 488 | 267 | **-45.3%** |
 
 ---
 
