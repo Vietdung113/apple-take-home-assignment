@@ -135,26 +135,29 @@ Training data distribution (after filtering):
 
 #### Prompt Template
 
-Each training sample is formatted using the chat template (Qwen3 `<|im_start|>/<|im_end|>`):
+Each training sample is formatted using `tokenizer.apply_chat_template()` with a custom template that removes Qwen3's default `<think>` blocks (unnecessary for summarization and wastes tokens):
 
 ```
-[System] You are an expert summarizing government reports.
+<|im_start|>system
+You are an expert summarizing government reports.
+
 Guidelines:
 • Read the entire document before summarizing
 • Include all major findings and their significance
 • Use only facts from the document - never invent numbers, dates, or names
 • Organize clearly: context → findings → implications
-• Match summary length to document complexity
+• Match summary length to document complexity<|im_end|>
+<|im_start|>user
+Summarize the following government report.
 
-[User] Summarize the following government report.
 Government Report:
 {document}
 
 Now write a summary covering: (1) what was examined and why,
 (2) key findings and conclusions, (3) implications or significance.
-Include specific numbers and details when available. Do not repeat information.
-
-[Assistant] {summary}<|im_end|>
+Include specific numbers and details when available. Do not repeat information.<|im_end|>
+<|im_start|>assistant
+{summary}<|im_end|>
 ```
 
 #### Hyperparameters

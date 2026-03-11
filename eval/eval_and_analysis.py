@@ -35,7 +35,7 @@ load_dotenv()
 
 # ── Configuration ────────────────────────────────────────────────────────
 
-BASE_MODEL_URL = os.getenv("BASE_MODEL_URL", "http://localhost:8080") + "/v1"
+BASE_MODEL_URL = os.getenv("BASE_MODEL_URL", "http://localhost:8100") + "/v1"
 AGENT_API_URL = os.getenv("AGENT_API_URL", "http://localhost:8001")
 
 # Embedding model for semantic similarity
@@ -77,6 +77,7 @@ async def call_base_model(document: str, max_tokens: int = None) -> dict:
             "stop": gen_params.get("stop", []),
         }
         resp = await client.post("/chat/completions", json=payload)
+        print(f"    Request sent to base model, status code: {resp.status_code}")
         resp.raise_for_status()
         data = resp.json()
 
